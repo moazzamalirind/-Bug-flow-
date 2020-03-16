@@ -130,11 +130,14 @@ CombineObjective              Combine objective functions for each senario
 Positive Variables
 storage(d)                    reservoir storage on any day d (acre-ft)
 release(d,p)                  reservoir release on any day d in any period p (cfs)
-Energyrate_vari(d,p)          Rate of hydropower with respect to day and period of day ($ per MWH)
+*Energyrate_vari(d,p)          Rate of hydropower with respect to day and period of day ($ per MWH)
 Energy_Gen(d,p)               Hydropower Generated at a each time step (MWH)
 ReleaseVol(d,p)               volume of water released per time step(acre-ft)
+* DER - I suggest to rename Threshold to MinRelease (more clear)
 Threshold                     Minimum release value of the hydrograph
-
+* DER - unclear definition. I think better IsMinFlow   (1= flow value is very close to Minimum release value, 0 = not close).
+*                                           This is defined as continuous variable to avoid having to solve a MINLP
+*
 check(d,p)                    function values
 ;
 
@@ -148,7 +151,7 @@ EQ2__reqpowerstorage(d)      The minimum storage equivalent to reservoir level r
 EQ3__maxstor(d)              res storage max (acre-ft)
 EQ4__MaxR(d,p)               Max Release (cfs)
 EQ5__MinR(d,p)               Min Release  (cfs)
-EQ6_Energyrate(d,p)          Defination of Energy rate as per period of day and day of week ($ per MWH)
+*EQ6_Energyrate(d,p)          Defination of Energy rate as per period of day and day of week ($ per MWH)
 EQ7_Rampup_rate(d,p)         Constraining the daily ramp up rate between the timesteps(cfs) ..(with in same day)
 EQ7a_Rampdown_rate(d,p)      Constraining the daily ramp down rate between the timesteps(cfs) ..(with in same day)
 EQ7b_Rampup_ratenext(d,p)    Constraining the daily ramp up rate between the last timestep of current day and next timestep for next day(cfs)
@@ -171,7 +174,7 @@ EQ2__reqpowerstorage(d)..    storage(d) =g= minstorage;
 EQ3__maxstor(d)..            storage(d)=l= maxstorage;
 EQ4__MaxR(d,p)..             release(d,p)=l= maxRel;
 EQ5__MinR(d,p)..             release(d,p)=g= minRel;
-EQ6_Energyrate(d,p)..        Energyrate_vari(d,p)=e= EnergyRate(p);
+*EQ6_Energyrate(d,p)..        Energyrate_vari(d,p)=e= EnergyRate(p);
 *Equation 6 is just making the energy rate same for all days. However in future we can change it as per different rates for different days.
 
 EQ7_Rampup_rate(d,p)..          release(d,"pHigh")-release(d,"pLow")=l=Daily_Ramprate;
@@ -183,12 +186,17 @@ EQ7d_FlowVolume(d,p)..       ReleaseVol(d,p) =e= release(d,p)*factor_foracftperH
 EQ8__Monthtlyrel..           sum(d,sum(p,ReleaseVol(d,p)))=e= TotMonth_volume;
 *EQ8_  constraining the overall monthly released volume..
 
-EQ9_Threshold..              Threshold =e= smin((d,p),release(d,p));
 * EQ9_ constraining the threshold value to be the minimimum value of the hydrograph
+EQ9_Threshold..              Threshold =e= smin((d,p),release(d,p));
 
-EQ9a_check(d,p)..           check(d,p)=e= round((-1/2)*(arctan(((release(d,p)-Threshold)-0.65)/0.001)/(pi/2)+1)+1,2);
+* DER - Needs a definition and explanation. Also why round? Remove so check will be a continous variable.
+*EQ9a_check(d,p)..           check(d,p)=e= round((-1/2)*(arctan(((release(d,p)-Threshold)-0.65)/0.001)/(pi/2)+1)+1,2);
+*EQ9a_check(d,p)..           check(d,p)=e= ((-1/2)*(arctan(((release(d,p)-Threshold)-0.65)/0.001)/(pi/2)+1)+1);
+* Or more explicitly because we are already using DNLP. If greater than a 300 cfs deviation from the threshold
+ EQ9a_check(d,p)..           check(d,p)=e= ifThen(release(d,p)-Threshold < 400,1,0);
 
 
+* DER - Needs a clear comment: counting the number of periods where flow is at/near the minimum flow.
 EQ10_function(f)$(ord(f) eq 1)..  ObjectiveVal(f)=e= sum((d,p),check(d,p));
 *EQ10_ introducing Tangent function
 
@@ -275,6 +283,10 @@ loop((tot_vol,f2),
    FtoUse(f2) = 1;
    Display FtoUse;
    TotMonth_volume= Vol_monthlyrelease(tot_vol);
+*  DER - Start with a constant release for every period and day
+   release.l(d,p) = TotMonth_volume/(factor_foracftperHr*24*30);
+*  DER - also initialize the check variable!
+   check.l(d,p) = 1;
 
 SOLVE ExtremePt USING dnlp maximize CombineObjective;
 

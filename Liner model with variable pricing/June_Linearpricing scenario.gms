@@ -192,11 +192,13 @@ EQ11_EnergyGen_Max(p)..                    Energy_Gen(p)=l= 1320*Duration(p);
 *EQ12_EnergyRevenue..                         ObjectiveVal=e= sum(p,Energy_Gen(p)*EnergyRate(p))*(Totaldays-Steady_Days)+ (sum(p,Steady_Release*Duration(p)*0.03715*EnergyRate(p)))*Steady_Days;
 **EQ12_HyrdroPower objective                                                                                                   Energy generated from the period of low steady flow multiply by the energy rate and summed over the day (2 periods) in a day and multiply by the number of steady low flow days.
 EQ12_EnergyRevenue..                         ObjectiveVal=e= sum(p,SteadyEn_Gen(p)*weekendRate(p))*weekends + sum(p,SteadyEn_Gen(p)*EnergyRate(p))*(Steady_Days-weekends)+ sum(p,Energy_Gen(p)*EnergyRate(p))*(Totaldays-Steady_Days);
-* *This equation works for number of steady days greater than weekend days.
+* *This equation works for number of steady days greater than number of weekend days.
 
-EQ13_Revenue..                             ObjectiveVal=e= sum(p,SteadyEn_Gen(p)*weekendRate(p))*(Steady_Days) + sum(p,Energy_Gen(p)*EnergyRate(p))*(Totaldays-(weekends-Steady_Days))+ sum(p,Energy_Gen(p)*weekendRate(p))*(weekends-Steady_Days);
-*This equation works for number of steady days either equal or less than weekend days.
+*EQ13_Revenue..                             ObjectiveVal=e= sum(p,SteadyEn_Gen(p)*weekendRate(p))*(Steady_Days) + sum(p,Energy_Gen(p)*EnergyRate(p))*(Totaldays-Steady_Days);
+*This equation works for number of steady days either equal or less than weekend days.  This equation price only the steady days as per weekned rate. Which means the days which are having unsteady flow but still weekend days will be priced as regeular weekday rates.
 ***************************************************
+EQ13_Revenue..                             ObjectiveVal=e= sum(p,SteadyEn_Gen(p)*weekendRate(p))*(Steady_Days) + sum(p,Energy_Gen(p)*weekendRate(p))*(weekends - Steady_Days)+ sum(p,Energy_Gen(p)*EnergyRate(p))*(Totaldays-weekends);
+*This equation works for number of steady days either equal or less than weekend days.  This equation price all the weekend days by weekned rate irrespective of whether its steady or hydropeaking day.
 
 ******
 ***************************************************
@@ -223,7 +225,7 @@ Steady_Release.L= 8000;
    TotMonth_volume = Vol_monthlyrelease(tot_vol);
    Steady_Days = Num_steady(case);
 
-if  (Steady_Days = 0,
+if  (Steady_Days <= weekends,
      SOLVE Model2 USING LP maximize ObjectiveVal;
 else SOLVE Model1 USING LP maximize ObjectiveVal;
 );

@@ -80,6 +80,7 @@ Total_Days(Month)                     Total number of day in a representative mo
 Tot_vol(Vol_yr)                       Total annual volume (ac-ft) /V1 8230000,V2 10500000/
 *The model can be simulated for any other desired total volume by setting the new values in Tot_vol parameter.
 
+
 Totyr_volume                          To represent total Annual volume (acre-ft)
 Fr(Month)                             Share of the representative month in total annual volume.
 
@@ -171,6 +172,7 @@ Steady_Release(Month)                Release on the weekends
 steady_Outflow(Month)                Volume of water released in the steady low flow days (acre-ft)
 unsteady_Outflow (Month)             Volume of water released in the unsteay low flow days (acre-ft)
 
+VoL_sum                               Parameter to see the annual volume released from the model
 ;
 
 
@@ -188,7 +190,8 @@ EQ4__maxstor(Month)                 Reservoir storage maximum capacity (acre-ft)
 EQ5__MaxR(Month,p)                  Max Release during period p (cfs)
 EQ6__MinR(Month,p)                  Min Release during period p (cfs)
 EQ7_Rampup_rate(Month)              Constraining the daily ramp up rate between the timesteps(cfs)with in same day
-EQ8__AnnualRel                      Total annual release  (acre-ft)
+EQ8__MonthlyRel(Month)              Monthly release volume (ac-ft)
+EQ8a__AnnualRel                     Total annual release  (acre-ft)(This will only reconfirm that we are not over or under releasing )
 EQ9_Steadyflow(Month)               Steady flow value equals the off-peak weekday value (cfs)
 EQ10_SteadyEnergy(Month,p)          Energy generated in each time step during steady flow days (MWH)
 EQ11_EnergyGen(Month,p)             Energy generated in each time step during unsteady flow days (MWH)
@@ -212,10 +215,10 @@ EQ4__maxstor(Month)..              storage(Month) =l= maxstorage;
 EQ5__MaxR(Month,p)..                release(Month,p)=l= maxRel;
 EQ6__MinR(Month,p)..                release(Month,p)=g= minRel;
 EQ7_Rampup_rate(Month)..                 release(Month,"pHigh")-release(Month,"pLow")=l=Daily_Ramprate;
+EQ8__MonthlyRel(Month)..                steady_Outflow(Month)+ unsteady_Outflow(Month)=e= Fr(Month)* Totyr_volume;
+*EQ8a__AnnualRel..                         Totyr_volume =e= Fr("M1")*(steady_Outflow("M1")+unsteady_Outflow("M1"))+ Fr("M2")*(steady_Outflow("M2")+unsteady_Outflow("M2")) + Fr("M3")*(steady_Outflow("M3")+unsteady_Outflow("M3"))+Fr("M4")*(steady_Outflow("M4")+unsteady_Outflow("M4"))+Fr("M5")*(steady_Outflow("M5")+unsteady_Outflow("M5"))+Fr("M6")*(steady_Outflow("M6")+unsteady_Outflow("M6"));
+EQ8a__AnnualRel..                           VoL_sum =e= sum(Month,steady_Outflow(Month)+ unsteady_Outflow(Month));
 
-*EQ7_  constraining the overall monthly released volume..
-*EQ8__AnnualRel..                          8230000 =e= Fr("M1")*(steady_Outflow("M1")+unsteady_Outflow("M1"))+ Fr("M2")*(steady_Outflow("M2")+unsteady_Outflow("M2")) + Fr("M3")*(steady_Outflow("M3")+unsteady_Outflow("M3"))+Fr("M4")*(steady_Outflow("M4")+unsteady_Outflow("M4"))+Fr("M5")*(steady_Outflow("M5")+unsteady_Outflow("M5"))+Fr("M6")*(steady_Outflow("M6")+unsteady_Outflow("M6"));
-EQ8__AnnualRel..                         Totyr_volume =e= Fr("M1")*(steady_Outflow("M1")+unsteady_Outflow("M1"))+ Fr("M2")*(steady_Outflow("M2")+unsteady_Outflow("M2")) + Fr("M3")*(steady_Outflow("M3")+unsteady_Outflow("M3"))+Fr("M4")*(steady_Outflow("M4")+unsteady_Outflow("M4"))+Fr("M5")*(steady_Outflow("M5")+unsteady_Outflow("M5"))+Fr("M6")*(steady_Outflow("M6")+unsteady_Outflow("M6"));
 EQ9_Steadyflow(Month)..                           Steady_Release(Month)=e=release(Month,"pLow");
 * EQ8_  finds the minimimum release value from the hydrograph. This equation also takes care of ramprate bewtween unsteady high release and steady release.
 
@@ -242,12 +245,12 @@ EQ14_Revenue..                             ObjectiveVal=e= sum(Month,sum(p,Stead
 ******Linearization Model
 ****************************************** ********
 
-MODEL Model1 Find value of hydropower revenue using LP/EQa_SteadyOutflow,EQb_UnSteadyOutflow,EQ1__InitMassBal,EQ2__ResMassBal,EQ3__reqpowerstorage,EQ4__maxstor,EQ5__MaxR,EQ6__MinR,EQ7_Rampup_rate,EQ8__AnnualRel,EQ9_Steadyflow,EQ10_SteadyEnergy,EQ11_EnergyGen,EQ12_EnergyGen_Max,EQ13_EnergyRevenue/;
+MODEL Model1 Find value of hydropower revenue using LP/EQa_SteadyOutflow,EQb_UnSteadyOutflow,EQ1__InitMassBal,EQ2__ResMassBal,EQ3__reqpowerstorage,EQ4__maxstor,EQ5__MaxR,EQ6__MinR,EQ7_Rampup_rate,EQ8__MonthlyRel,EQ8a__AnnualRel,EQ9_Steadyflow,EQ10_SteadyEnergy,EQ11_EnergyGen,EQ12_EnergyGen_Max,EQ13_EnergyRevenue/;
 *this Model will work under scenarios when number of steady low bug flow days are greater than number of weekned days.
 
 *Model1.optfile = 1;
 
-Model Model2 Find value of hydropower revenue using LP /EQa_SteadyOutflow,EQb_UnSteadyOutflow,EQ1__InitMassBal,EQ2__ResMassBal,EQ3__reqpowerstorage,EQ4__maxstor,EQ5__MaxR,EQ6__MinR,EQ7_Rampup_rate,EQ8__AnnualRel,EQ9_Steadyflow,EQ10_SteadyEnergy,EQ11_EnergyGen,EQ12_EnergyGen_Max,EQ14_Revenue/;
+Model Model2 Find value of hydropower revenue using LP /EQa_SteadyOutflow,EQb_UnSteadyOutflow,EQ1__InitMassBal,EQ2__ResMassBal,EQ3__reqpowerstorage,EQ4__maxstor,EQ5__MaxR,EQ6__MinR,EQ7_Rampup_rate,EQ8__MonthlyRel,EQ8a__AnnualRel,EQ9_Steadyflow,EQ10_SteadyEnergy,EQ11_EnergyGen,EQ12_EnergyGen_Max,EQ14_Revenue/;
 *this Model will work under scenarios when number of steady low bug flow days are less than or equal to number of weekned days.
 
 *Model2.optfile = 1;
@@ -262,7 +265,7 @@ option LP= CPLEX;
 
 *initializing the variables
 release.L(Month,p) = 10000;
-Steady_Release.L (Month)= 8000;
+Steady_Release.L(Month)= 8000;
 
 
 *Constraining the total annual volume

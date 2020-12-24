@@ -34,16 +34,16 @@ Alias (FlowPattern,FlowType);
 Parameters
 *======================================
 
-initstorage                           Initial reservoir storage (e.g Storage in Powell on 1st June 2018) (acre-ft)/12899134/
+Initstorage                           Initial reservoir storage (e.g Storage in Powell on 1st June 2018) (acre-ft)/12899134/
 * Storage data for lake Powell can be found at: http://lakepowell.water-data.com/index2.php
 
-Inflow                                Average monthly Inflows to reservoir (cfs) /10671/
+Inflow                                Average monthly Inflow to reservoir (cfs) /10671/
 *Inflow data can be found at: http://lakepowell.water-data.com/index2.php
 
 maxstorage                            Maximumn Reservoir capacity (acre-ft)/25000000/
 minstorage                            Minimum reservoir storage to maintain hydropower level(acre-ft)/8950000/
 maxRel                                Maximum release in a day d at any timeperiod p(cfs) /32000/
-minRel                                Minimum release in a day d at any timeperiod p(cfs)
+minRel                                Minimum release in a day d at any timeperiod p(cfs)/8000/
 evap                                  Evaporation (ac-ft per Month) /45291/
 *The evaporation data can be found at: https://www.usbr.gov/rsvrWater/HistoricalApp.html
 
@@ -127,12 +127,13 @@ EQ4b_MaxR(FlowPattern,d,p)                       Max Release for any day type du
 EQ5a_MinR(FlowPattern,d,p)                       Min Release for any day type with flows during any period p but it will not work when NumDays will be zero (cfs)
 EQ5b_MinR(FlowPattern,d,p)                       Min Release for any day type during any period p when NumdDays equal to zero(cfs)
 EQ6a_Rel_Range(FlowPattern,d)                    Constraining the daily release range but it will not work when NumDays will be zero(cfs per day)
-EQ6b_Rel_Range(FlowPattern,d)                     Constraining the daily release range when NumdDays equal to zero(cfs per day)
+EQ6b_Rel_Range(FlowPattern,d)                    Constraining the daily release range when NumdDays equal to zero(cfs per day)
 EQ7_Monthtlyrel                                  Constraining total monthly release volume (ac-ft)
 EQ8_RelVolume                                    Total volume from different types of day in the month (ac-ft)
-EQ9_SteadyFlow_Sundays                           Constraining on-peak and off-peak releases during sunday equal (cfs)
+EQ9_SteadyFlow_Sundays(FlowPattern,d)            Constraining on-peak and off-peak releases during sunday equal (cfs)
 EQ10_Saturdays_Offpeak(FlowPattern)              Constraining off-peak saturday and sunday off-peak releases equal (cfs)
-EQ11_OffPeakdiff(FlowPattern)                    Offset between the off-peak weekday and sunday (steady day) releases(cfs)
+EQ11a_OffPeakdiff(FlowPattern,d)                 Offset between the off-peak weekday and sunday (steady day) releases(cfs)
+EQ11b_SameOffPeak(FlowPattern,d)                 When there are zero steady days then no offset between offpeak weekday and weekends (saturday and sunday)(cfs)
 EQ12_EnergyGen_Max(FlowPattern,d,p)              Maximum Energy Generation Limit of the Glen Caynon Dam(MW)
 EQ13_EnergyGen(FlowPattern,d,p)                  Energy generated in each period p during different day types (MWh)
 
@@ -143,41 +144,44 @@ EQ14_EnergyRevenue                               Total monthly Hydropower Revenu
 *------------------------------------------------------------------------------*
 
 *Mass Balance Equation
-EQ1_ResMassBal..                               storage =e= initstorage + (Inflow*Convert*sum(p,Duration(p))*Totaldays)- Released_vol - evap;
+EQ1_ResMassBal..                               storage =e= Initstorage + (Inflow*Convert*sum(p,Duration(p))*Totaldays)- Released_vol - evap;
 *                                                                          CFS * conversion factor from cfs to ac-ft/hr and multiplied by 24 (total duration in a day) then multiplied by total day in the month
 *Physical Constraints
 EQ2_reqpowerstorage..                          storage =g= minstorage;
 EQ3_maxstor..                                  storage =l= maxstorage;
 
-EQ4a_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..               Release(FlowPattern,d,p)=l= maxRel;
-EQ4b_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..               Release(FlowPattern,d,p)=e= 0;
+EQ4a_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..                    Release(FlowPattern,d,p)=l= maxRel;
+EQ4b_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..                    Release(FlowPattern,d,p)=e= 0;
 
-EQ5a_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..               Release(FlowPattern,d,p)=g= minRel;
-EQ5b_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..               Release(FlowPattern,d,p)=e= 0;
+EQ5a_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..                    Release(FlowPattern,d,p)=g= minRel;
+EQ5b_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..                    Release(FlowPattern,d,p)=e= 0;
 
-EQ6a_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) gt 0)..             Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=l=Daily_RelRange;
-EQ6b_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) eq 0)..             Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=e= 0;
+EQ6a_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) gt 0)..                 Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=l=Daily_RelRange;
+EQ6b_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) eq 0)..                 Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=e= 0;
 
 *EQ7_  constraining the overall monthly released volume..
-EQ7_Monthtlyrel..                              TotMonth_volume=e= Released_vol;
+EQ7_Monthtlyrel..                                                              TotMonth_volume=e= Released_vol;
 
-EQ8_RelVolume..                                Released_vol=e= sum(FlowPattern, sum(d, sum(p, Release(FlowPattern,d,p)*Convert*Duration(p))*Num_Days(FlowPattern,d)));
+EQ8_RelVolume..                                                                Released_vol=e=  sum((FlowPattern,d), sum(p, Release(FlowPattern,d,p)*Convert*Duration(p))*Num_Days(FlowPattern,d));
 
 *Managerial Constraints
-EQ9_SteadyFlow_Sundays..                       Release("Steady","Sunday","pHigh") =e= Release("Steady","Sunday","pLow");
+EQ9_SteadyFlow_Sundays(FlowPattern,d)$(Num_Days("Steady","Sunday") gt 0)..     Release("Steady","Sunday","pHigh") =e= Release("Steady","Sunday","pLow");
 *This equation will be creating problem when the low flow days will be zero, therefore, create different model for Zero days...
 
-EQ10_Saturdays_Offpeak(FlowPattern)..          Release(FlowPattern,"Saturday","pLow")=e= Release(FlowPattern,"Sunday","plow");
+EQ10_Saturdays_Offpeak(FlowPattern)..                                          Release(FlowPattern,"Saturday","pLow")=e= Release(FlowPattern,"Sunday","plow");
+*This equation is not working
 
-EQ11_OffPeakdiff(FlowPattern)..                Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow")+ Weekend_Rel;
+EQ11a_OffPeakdiff(FlowPattern,d)$(Num_Days("Steady","Sunday") gt 0)..          Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow")+ Weekend_Rel;
 * EQ11_  finds the minimimum release value from the hydrograph plus additional release we desire on weekends above off-peak weekday release (i.e. Offset).
 
-EQ12_EnergyGen_Max(FlowPattern,d,p)..          Energy_Gen(FlowPattern,d,p)=l= 1320*Duration(p);
+EQ11b_SameOffPeak(FlowPattern,d)$(Num_Days("Steady","Sunday") eq 0)..          Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow");
+
+EQ12_EnergyGen_Max(FlowPattern,d,p)..                                          Energy_Gen(FlowPattern,d,p)=l= 1320*Duration(p);
 *Maximum Energy Generation capacity of GCD (MWH).. Source https://www.usbr.gov/uc/rm/crsp/gc
-EQ13_EnergyGen(FlowPattern,d,p)..              Energy_Gen(FlowPattern,d,p)=e= Release(FlowPattern,d,p)*Duration(p)*0.03715;
+EQ13_EnergyGen(FlowPattern,d,p)..                                              Energy_Gen(FlowPattern,d,p)=e= Release(FlowPattern,d,p)*Duration(p)*0.03715;
 * Energy generation formula used in WAPA Execl model..
 
-EQ14_EnergyRevenue..                           ObjectiveVal=e= sum(FlowPattern,sum(d, sum(p,Energy_Gen(FlowPattern,d,p)*Energy_Price(d,p))*Num_Days(FlowPattern,d)));
+EQ14_EnergyRevenue..                                                           ObjectiveVal=e= sum(FlowPattern,sum(d, sum(p,Energy_Gen(FlowPattern,d,p)*Energy_Price(d,p))*Num_Days(FlowPattern,d)));
 
 *------------------------------------------------------------------------------*
 
@@ -197,11 +201,13 @@ Energy_Price(Days,p)= Energy_Rate(Days,p);
 
 option LP= CPLEX;
 
+******************************
+*initialization (It optional in linear progromming incontrast to non-linear)
+*Release.L(FlowPattern,d,p)= 1000;
+**********************************
+
 Solve Model1 using LP MAXIMIZE ObjectiveVal;
 
-*This if else statement is introducing two minimum release values i.e. if there is any release made that must be equal to or greater than 8000 cfs else just make no release.
-
-*-----------------------------------------------
 *----------------------------------------------------------------------------------------------------------------------
 *----------------------------------------------------------------------------------------------------------------------
 * All the following lines of code are saving values for different parameters
@@ -209,10 +215,10 @@ Solve Model1 using LP MAXIMIZE ObjectiveVal;
    FStore(Offset,tot_vol,Nu_SteadyDays)= ObjectiveVal.L;
 
 * XStore store the energy generated (Mwh/day) during different types of days
-   XStore(Offset,tot_vol,Nu_SteadyDays,FlowType,Days)= sum (p,Energy_Gen.L(FlowType,Days,p));
+   XStore(Offset,tot_vol,Nu_SteadyDays,FlowType,Days)= sum (p,Energy_Gen.L(FlowType,Days,p))+ EPS;
 
 * RStore store the reservoir releases (cfs) during different types of days and scenarios.
-   RStore(Offset,tot_vol,Nu_SteadyDays,FlowType,Days,p)= Release.L(FlowType,Days,p);
+   RStore(Offset,tot_vol,Nu_SteadyDays,FlowType,Days,p)= Release.L(FlowType,Days,p)+ EPS;
 
 *Sstore store the end of month reservoir storage (ac-ft)
    Sstore(Offset,tot_vol,Nu_SteadyDays)= storage.L;

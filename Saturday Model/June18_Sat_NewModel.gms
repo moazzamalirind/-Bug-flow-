@@ -122,23 +122,21 @@ EQUATIONS
 EQ1_ResMassBal                                   Reservoir mass balance (acre-ft)
 EQ2_reqpowerstorage                              The minimum storage required for hydropower generation(power pool storage) (acre-ft)
 EQ3_maxstor                                      Reservoir Max storage (acre-ft)
-EQ4a_MaxR(FlowPattern,d,p)                       Max Release for any day type during any period p but it will not work when NumDays will be zero(cfs)
-EQ4b_MaxR(FlowPattern,d,p)                       Max Release for any day type during any period p when NumdDays equal to zero(cfs)
-EQ5a_MinR(FlowPattern,d,p)                       Min Release for any day type with flows during any period p but it will not work when NumDays will be zero (cfs)
-EQ5b_MinR(FlowPattern,d,p)                       Min Release for any day type during any period p when NumdDays equal to zero(cfs)
-EQ6a_Rel_Range(FlowPattern,d)                    Constraining the daily release range but it will not work when NumDays will be zero(cfs per day)
-EQ6b_Rel_Range(FlowPattern,d)                    Constraining the daily release range when NumdDays equal to zero(cfs per day)
-EQ7_Monthtlyrel                                  Constraining total monthly release volume (ac-ft)
-EQ8_RelVolume                                    Total volume from different types of day in the month (ac-ft)
-EQ9_SteadyFlow_Sundays(FlowPattern,d)            Constraining on-peak and off-peak releases during sunday equal (cfs)
-EQ10_Saturdays_Offpeak(FlowPattern)              Constraining off-peak saturday and sunday off-peak releases equal (cfs)
-EQ11a_OffPeakdiff(FlowPattern,d)                 Offset between the off-peak weekday and sunday (steady day) releases(cfs)
-EQ11b_SameOffPeak(FlowPattern,d)                 When there are zero steady days then no offset between offpeak weekday and weekends (saturday and sunday)(cfs)
-EQ12_EnergyGen_Max(FlowPattern,d,p)              Maximum Energy Generation Limit of the Glen Caynon Dam(MW)
-EQ13_EnergyGen(FlowPattern,d,p)                  Energy generated in each period p during different day types (MWh)
+EQ4_MaxR(FlowPattern,d,p)                        Max Release for any day type during any period p but it will not work when NumDays will be zero(cfs)
+EQ5_MinR(FlowPattern,d,p)                        Min Release for any day type with flows during any period p but it will not work when NumDays will be zero (cfs)
+EQ6_ZeroDays(FlowPattern,d,p)                    Release for any day type during any period p when NumdDays equal to zero(cfs)
+EQ7_Rel_Range(FlowPattern,d)                     Constraining the daily release range but it will not work when NumDays will be zero(cfs per day)
+EQ8_Monthtlyrel                                  Constraining total monthly release volume (ac-ft)
+EQ9_RelVolume                                    Total volume from different types of day in the month (ac-ft)
+EQ10_SteadyFlow_Sundays(FlowPattern,d)           Constraining on-peak and off-peak releases during sunday equal (cfs)
+EQ11_Saturdays_Offpeak(FlowPattern)              Constraining off-peak saturday and sunday off-peak releases equal (cfs)
+EQ12a_OffPeakdiff(FlowPattern,d)                 Offset between the off-peak weekday and sunday (steady day) releases(cfs)
+EQ12b_SameOffPeak(FlowPattern,d)                 When there are zero steady days then no offset between offpeak weekday and weekends (saturday and sunday)(cfs)
+EQ13_EnergyGen_Max(FlowPattern,d,p)              Maximum Energy Generation Limit of the Glen Caynon Dam(MW)
+EQ14_EnergyGen(FlowPattern,d,p)                  Energy generated in each period p during different day types (MWh)
 
 *Objective Functions
-EQ14_EnergyRevenue                               Total monthly Hydropower Revenue generated when number of steady low flow day are greater than or equal to sum of saturdays sundays and holidays(e.g. 8 in this case)($)
+EQ15_EnergyRevenue                               Total monthly Hydropower Revenue generated when number of steady low flow day are greater than or equal to sum of saturdays sundays and holidays(e.g. 8 in this case)($)
 ;
 
 *------------------------------------------------------------------------------*
@@ -150,39 +148,37 @@ EQ1_ResMassBal..                               storage =e= Initstorage + (Inflow
 EQ2_reqpowerstorage..                          storage =g= minstorage;
 EQ3_maxstor..                                  storage =l= maxstorage;
 
-EQ4a_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..                    Release(FlowPattern,d,p)=l= maxRel;
-EQ4b_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..                    Release(FlowPattern,d,p)=e= 0;
+EQ4_MaxR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..                     Release(FlowPattern,d,p)=l= maxRel;
 
-EQ5a_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..                    Release(FlowPattern,d,p)=g= minRel;
-EQ5b_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..                    Release(FlowPattern,d,p)=e= 0;
+EQ5_MinR(FlowPattern,d,p)$(Num_Days(FlowPattern,d) gt 0)..                     Release(FlowPattern,d,p)=g= minRel;
 
-EQ6a_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) gt 0)..                 Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=l=Daily_RelRange;
-EQ6b_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) eq 0)..                 Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=e= 0;
+EQ6_ZeroDays(FlowPattern,d,p)$(Num_Days(FlowPattern,d) eq 0)..                 Release(FlowPattern,d,p)=e= 0;
 
-*EQ7_  constraining the overall monthly released volume..
-EQ7_Monthtlyrel..                                                              TotMonth_volume=e= Released_vol;
+EQ7_Rel_Range(FlowPattern,d)$(Num_Days(FlowPattern,d) gt 0)..                  Release(FlowPattern,d,"pHigh")- Release(FlowPattern,d,"pLow")=l=Daily_RelRange;
 
-EQ8_RelVolume..                                                                Released_vol=e=  sum((FlowPattern,d), sum(p, Release(FlowPattern,d,p)*Convert*Duration(p))*Num_Days(FlowPattern,d));
+*EQ8_  constraining the overall monthly released volume..
+EQ8_Monthtlyrel..                                                              TotMonth_volume=e= Released_vol;
+
+EQ9_RelVolume..                                                                Released_vol=e=  sum(FlowPattern,sum(d, sum(p, Release(FlowPattern,d,p)*Convert*Duration(p))*Num_Days(FlowPattern,d)));
 
 *Managerial Constraints
-EQ9_SteadyFlow_Sundays(FlowPattern,d)$(Num_Days("Steady","Sunday") gt 0)..     Release("Steady","Sunday","pHigh") =e= Release("Steady","Sunday","pLow");
+EQ10_SteadyFlow_Sundays(FlowPattern,d)$(Num_Days("Steady","Sunday") gt 0)..    Release("Steady","Sunday","pHigh") =e= Release("Steady","Sunday","pLow");
 *This equation will be creating problem when the low flow days will be zero, therefore, create different model for Zero days...
 
-EQ10_Saturdays_Offpeak(FlowPattern)..                                          Release(FlowPattern,"Saturday","pLow")=e= Release(FlowPattern,"Sunday","plow");
+EQ11_Saturdays_Offpeak(FlowPattern)..                                          Release(FlowPattern,"Saturday","pLow")=e= Release(FlowPattern,"Sunday","plow");
 *This equation is not working
 
-EQ11a_OffPeakdiff(FlowPattern,d)$(Num_Days("Steady","Sunday") gt 0)..          Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow")+ Weekend_Rel;
-* EQ11_  finds the minimimum release value from the hydrograph plus additional release we desire on weekends above off-peak weekday release (i.e. Offset).
+EQ12a_OffPeakdiff(FlowPattern,d)$(Num_Days("Steady","Sunday") gt 0)..          Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow")+ Weekend_Rel;
+* EQ12_  finds the minimimum release value from the hydrograph plus additional release we desire on weekends above off-peak weekday release (i.e. Offset).
 
-EQ11b_SameOffPeak(FlowPattern,d)$(Num_Days("Steady","Sunday") eq 0)..          Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow");
+EQ12b_SameOffPeak(FlowPattern,d)$(Num_Days("Steady","Sunday") eq 0)..          Release(FlowPattern,"Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow");
 
-EQ12_EnergyGen_Max(FlowPattern,d,p)..                                          Energy_Gen(FlowPattern,d,p)=l= 1320*Duration(p);
+EQ13_EnergyGen_Max(FlowPattern,d,p)..                                          Energy_Gen(FlowPattern,d,p)=l= 1320*Duration(p);
 *Maximum Energy Generation capacity of GCD (MWH).. Source https://www.usbr.gov/uc/rm/crsp/gc
-EQ13_EnergyGen(FlowPattern,d,p)..                                              Energy_Gen(FlowPattern,d,p)=e= Release(FlowPattern,d,p)*Duration(p)*0.03715;
+EQ14_EnergyGen(FlowPattern,d,p)..                                              Energy_Gen(FlowPattern,d,p)=e= Release(FlowPattern,d,p)*Duration(p)*0.03715;
 * Energy generation formula used in WAPA Execl model..
 
-EQ14_EnergyRevenue..                                                           ObjectiveVal=e= sum(FlowPattern,sum(d, sum(p,Energy_Gen(FlowPattern,d,p)*Energy_Price(d,p))*Num_Days(FlowPattern,d)));
-
+EQ15_EnergyRevenue..                                                           ObjectiveVal=e= sum(FlowPattern,sum(d, sum(p,Energy_Gen(FlowPattern,d,p)*Energy_Price(d,p))*Num_Days(FlowPattern,d)));
 *------------------------------------------------------------------------------*
 
 *MODEL Model1 Find value of hydropower revenue using LP/EQ1_ResMassBal,EQ2_reqpowerstorage,EQ3_maxstor,EQ4_MaxR,EQ5_MinR,EQ6_Rel_Range,EQ7_Monthtlyrel,EQ8_RelVolume,EQ10_Saturdays,EQ11_OffPeakdiff,EQ12_EnergyGen_Max,EQ13_EnergyGen,EQ14_EnergyRevenue/;

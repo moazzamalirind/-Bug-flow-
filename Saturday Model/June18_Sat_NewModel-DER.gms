@@ -129,11 +129,15 @@ EQ7_Rel_Range(FlowPattern,d)                     Constraining the daily release 
 EQ8_Monthtlyrel                                  Constraining total monthly release volume (ac-ft)
 EQ9_RelVolume                                    Total volume from different types of day in the month (ac-ft)
 EQ10_SteadyFlow_Sundays(FlowPattern,d)           Constraining on-peak and off-peak releases during sunday equal (cfs)
-EQ11_Saturdays_Offpeak(FlowPattern)              Constraining off-peak saturday and sunday off-peak releases equal (cfs)
+*EQ11_Saturdays_Offpeak(FlowPattern)              Constraining off-peak saturday and sunday off-peak releases equal (cfs)
 EQ12a_OffPeakdiff(FlowPattern)                   Offset between the off-peak weekday and sunday (steady day) releases(cfs)
 EQ12b_SameOffPeak(FlowPattern,d,p)               When there are zero steady days then no offset between offpeak weekday and weekends (saturday and sunday)(cfs)
 EQ12c_Steady_Saturdays(FlowPattern,d,p)          Constraining the steady Saturday flows equal to other steady days flows (cfs)
-EQ12d_Unsteady_Sunday(FlowPattern,d,p)           Constraining off-peak period during unsteady sunday equal to weekday low(cfs)
+*EQ12d_Unsteady_Sunday(FlowPattern,d,p)           Constraining off-peak period during unsteady sunday equal to weekday low(cfs)
+
+*EQ12e_Unsteady_OnPeak_Saturday(FlowPattern,d,p)  Constaining On-Peak unsteady Saturday release for trial (cfs)
+*EQ12f_Unsteady_OnPeak_Sunday(FlowPattern,d,p)    Constaining On-Peak unsteady Sunday release for trial (cfs)
+
 EQ13_EnergyGen_Max(FlowPattern,d,p)              Maximum Energy Generation Limit of the Glen Caynon Dam(MW)
 EQ14_EnergyGen(FlowPattern,d,p)                  Energy generated in each period p during different day types (MWh)
 
@@ -168,8 +172,8 @@ EQ9_RelVolume..                                                                R
 EQ10_SteadyFlow_Sundays(FlowPattern,d)$(Num_Days("Steady",d) gt 0)..           Release("Steady",d,"pHigh") =e= Release("Steady",d,"pLow");
 *This equation will be creating problem when the low flow days will be zero, therefore, create different equation for Zero days...
 
-*DER change: Need to condition which saturdays generate the equation
-EQ11_Saturdays_Offpeak(FlowPattern)$((Num_Days("Unsteady","Saturday") gt 0) - (Num_Days("Steady","Sunday") eq 0))..            Release("Unsteady","Saturday","pLow")=e= Release("Unsteady","Weekday","pLow");
+
+*EQ11_Saturdays_Offpeak(FlowPattern)$((Num_Days("Unsteady","Saturday") gt 0) - (Num_Days("Steady","Sunday") eq 0))..            Release("Unsteady","Saturday","pLow")=e= Release("Unsteady","Weekday","pLow");
 
 *DER change: remove set indexing on the equation
 EQ12a_OffPeakdiff(FlowPattern)$((Num_days(FlowPattern,"Weekday") gt 0) and (Num_Days("Steady","Sunday") gt 0))..          Release("Steady","Sunday","pLow")=e= Release(FlowPattern,"Weekday","pLow")+ Weekend_Rel;
@@ -179,7 +183,11 @@ EQ12b_SameOffPeak(FlowPattern,d,p)$(Num_Days("Steady","Sunday") eq 0)..         
 
 EQ12c_Steady_Saturdays(FlowPattern,d,p)$(Num_Days("Steady","Saturday")gt 0)..   Release("Steady","Saturday",p)=e= Release("Steady","Sunday",p);
 
-EQ12d_Unsteady_Sunday(FlowPattern,d,p)$(Num_Days("Unsteady","Sunday")gt 0)..    Release("Unsteady","Sunday","pLow")=e= Release("Unsteady","Weekday","pLow");
+*EQ12d_Unsteady_Sunday(FlowPattern,d,p)$(Num_Days("Unsteady","Sunday")gt 0)..    Release("Unsteady","Sunday","pLow")=e= Release("Unsteady","Weekday","pLow");
+
+*EQ12e_Unsteady_OnPeak_Saturday(FlowPattern,d,p)$((Num_Days("Unsteady","Saturday") gt 0) - (Num_Days("Steady","Sunday") eq 0))..   Release("Unsteady","Saturday","pHigh")=e= 11000;
+
+*EQ12f_Unsteady_OnPeak_Sunday(FlowPattern,d,p)$(Num_Days("Unsteady","Sunday")eq 2)..  Release("Unsteady","Sunday","pHigh")=e= 10000;
 
 EQ13_EnergyGen_Max(FlowPattern,d,p)..                                          Energy_Gen(FlowPattern,d,p)=l= 1320*Duration(p);
 *Maximum Energy Generation capacity of GCD (MWH).. Source https://www.usbr.gov/uc/rm/crsp/gc
@@ -189,11 +197,11 @@ EQ14_EnergyGen(FlowPattern,d,p)..                                              E
 EQ15_EnergyRevenue..                                                           ObjectiveVal=e= sum(FlowPattern,sum(d, sum(p,Energy_Gen(FlowPattern,d,p)*Energy_Price(d,p))*Num_Days(FlowPattern,d)));
 *------------------------------------------------------------------------------*
 
+
+
 MODEL Model1 Find value of hydropower revenue using LP/ALL/;
 *This model is for all cases of steady flow days
 
-
-*Loop((Offset,tot_vol,FlowType,Days,Nu_SteadyDays),
 Loop((Offset,tot_vol,Nu_SteadyDays),
 
 Weekend_Rel= Diff_Release(Offset);
@@ -227,7 +235,6 @@ Solve Model1 using LP MAXIMIZE ObjectiveVal;
 
 
 *Saving the model status for different scenarios.
-
    ModelResults(Offset,tot_vol,Nu_SteadyDays,"SolStat")= Model1.solvestat;
    ModelResults(Offset,tot_vol,Nu_SteadyDays,"ModStat")= Model1.modelstat;
 
@@ -241,11 +248,21 @@ DISPLAY FStore,XStore,RStore,Sstore;
 
 *------------------------------------------------------------------------------*
 
-* Dump all input data and results to a GAMS gdx file
-Execute_Unload "DER.gdx";
-* Dump the gdx file to an Excel workbook
-Execute "gdx2xls DER.gdx"
+*Following part of code creates  gdx and excel output file..
 
+* Dump all input data and results to a GAMS gdx file
+Execute_Unload "DER_Unconstrained.gdx";
+* Dump the gdx file to an Excel workbook
+Execute "gdx2xls DER_Unconstrained.gdx"
+
+
+*Following code can be used to create gdx and excel output files when EQ12e and EQ12f is included in the model. Both EQ12e and EQ12f are introduced to test the behavior of model against contrainted releases.
+$ontext
+* Dump all input data and results to a GAMS gdx file
+Execute_Unload "DER_Trial.gdx";
+* Dump the gdx file to an Excel workbook
+Execute "gdx2xls DER_Trial.gdx"
+$offtext
 
 
 
